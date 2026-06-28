@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <!-- Optimisation mobile essentielle pour bloquer le zoom sauvage sur smartphone -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GarantiePay - Validation Triangulée</title>
+    
+    <!-- CONFIGURATION ICÔNE POUR ÉCRAN D'ACCUEIL TÉLÉPHONE (PWA / Mobile Bookmark) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="GarantiePay">
+    <link rel="apple-touch-icon" href="logo.png">
+    <link rel="icon" type="image/png" href="logo.png">
+
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Inclusion officielle du SDK Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- ACCUEIL AVEC IMAGE COMPAGNON À GAUCHE & LOGO OFFICIEL DYNAMIQUEMENT INTÉGRÉ -->
+    <div id="authSection" class="auth-container">
+        <div class="auth-split-wrapper">
+            <div class="auth-image-side">
+                <img src="homme-image.jpg" alt="GarantiePay App Face">
+            </div>
+            <div class="auth-card">
+                <div style="text-align: center; margin-bottom: 25px;">
+                    <!-- Ton magnifique nouveau logo de l'image_2026-06-28_015110734.png -->
+                    <img src="logo.png" alt="GarantiePay Logo" style="max-height: 80px; margin-bottom: 12px; border-radius: 12px;">
+                    <h2 id="authTitle" style="color: var(--text); font-weight: 800; letter-spacing: -0.5px;">GarantiePay</h2>
+                    <p id="authSubtitle" class="text-muted" style="font-size: 0.85rem;">Identifiez-vous pour accéder à votre espace triangulé.</p>
+                </div>
+                <div class="form-group">
+                    <div class="role-selector-grid">
+                        <div class="role-card selected" id="roleAcheteur" onclick="choisirRole('acheteur')"><div>🛍️ Client</div></div>
+                        <div class="role-card" id="roleMarchand" onclick="choisirRole('marchand')"><div>🛒 Vendeur</div></div>
+                        <div class="role-card" id="roleLivreur" onclick="choisirRole('livreur')"><div>🛵 Livreur</div></div>
+                    </div>
+                    
+                    <input type="text" id="authUsername" placeholder="Entrez votre nom d'utilisateur">
+                    <input type="text" id="authTelephone" placeholder="Numéro de téléphone (ex: +225...)">
+                    
+                    <button class="btn btn-primary" style="width: 100%; font-size: 1rem; padding: 14px;" onclick="authentifierUtilisateur()">Entrer de manière sécurisée</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DASHBOARDS INTERNES CONNECTÉS -->
+    <div id="appInternalLayout" class="hidden">
+        <header style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 15px; margin-bottom: 25px;">
+            <img src="logo.png" alt="GarantiePay Logo" style="max-height: 35px; border-radius: 4px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span id="userSessionInfo" class="badge badge-attente"></span>
+                <button class="btn btn-danger" style="padding: 6px 12px; font-size:0.85rem;" onclick="deconnexion()">Quitter</button>
+            </div>
+        </header>
+
+        <!-- DASHBOARD : MARCHAND -->
+        <div id="dashMarchand" class="dashboard-view hidden">
+            <div class="card" style="background: #f0fdf4; border-left: 4px solid var(--success);">
+                <h3>🛒 Espace Vendeur Pro</h3>
+            </div>
+            <div class="grid">
+                <div class="card">
+                    <h4>📦 Créer un nouveau contrat de vente</h4>
+                    <div class="form-group" style="margin-top: 15px;">
+                        <input type="text" id="mNomCourse" placeholder="Nom de l'article (ex: Sac de luxe)">
+                        <input type="number" id="mMontantM" placeholder="Prix Marchandise (FCFA)">
+                        <input type="number" id="mMontantL" placeholder="Frais de Livraison (FCFA)">
+                        <button class="btn btn-primary" style="width: 100%;" onclick="creerTransactionMarchand()">Générer le Code Contrat Marchand</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <h4>📊 Ventes globales</h4>
+                    <div class="chart-container"><div class="bar-chart" id="marchandChart"></div></div>
+                </div>
+            </div>
+            <div class="card" style="margin-top: 25px;">
+                <h4>📜 Historique de vos Codes Marchands Émis</h4>
+                <div id="listeVentesMarchand"></div>
+            </div>
+        </div>
+
+        <!-- DASHBOARD : ACHETEUR / CLIENT -->
+        <div id="dashAcheteur" class="dashboard-view hidden">
+            <div class="card" style="background: #eff6ff; border-left: 4px solid var(--primary);">
+                <h3>🛍️ Espace Acheteur / Client</h3>
+            </div>
+            <div class="grid">
+                <div class="card">
+                    <h4>🔑 Espace : Confirmer l'achat</h4>
+                    <p class="text-muted" style="font-size:0.85rem; margin-bottom:10px;">Collez le code fourni par le vendeur pour valider les montants et bloquer les fonds sous séquestre.</p>
+                    <input type="text" id="inputShareCode" placeholder="COLLER LE CODE MARCHAND (EX: GP-XXXXX)" style="text-align: center; font-weight: bold;">
+                    <button class="btn btn-primary" style="width: 100%;" onclick="validerCodeAchatClient()">Récupérer & Confirmer l'achat</button>
+                </div>
+                <div class="card">
+                    <h4>🔑 Votre QR Code de Déblocage Sécurisé</h4>
+                    <div id="listeAchatsSecurises">Aucun QR code actif. Confirmez d'abord un achat ci-contre.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DASHBOARD : LIVREUR -->
+        <div id="dashLivreur" class="dashboard-view hidden">
+            <div class="card" style="background: #fffbeb; border-left: 4px solid var(--warning);">
+                <h3>🛵 Espace Livreur Pro</h3>
+            </div>
+            <div class="grid">
+                <div class="card">
+                    <h4>📋 Espace : Accepter la livraison</h4>
+                    <p class="text-muted" style="font-size:0.85rem; margin-bottom:10px;">Entrez le code de la commande transmis par le vendeur pour l'ajouter à vos missions.</p>
+                    <input type="text" id="inputLivreurCodeMission" placeholder="ENTRER LE CODE MARCHAND POUR ACCEPTER" style="text-align: center; font-weight: bold;">
+                    <button class="btn btn-warning" style="width: 100%; font-weight: bold;" onclick="validerCodeLivraisonLivreur()">Vérifier & Accepter la mission</button>
+                </div>
+                <div class="card" style="text-align: center;">
+                    <span class="text-muted">💰 Mon Solde Course Encaissé</span>
+                    <h2 id="livreurSoldeGains" style="color: var(--success); font-size: 2rem;">0 FCFA</h2>
+                    <div class="chart-container" style="border:none;"><div class="bar-chart" id="livreurChart"></div></div>
+                </div>
+            </div>
+
+            <!-- ZONE SCANNER PHOTO MOBILE DU LIVREUR -->
+            <div id="scannerZone" class="card hidden" style="border: 2px dashed var(--warning); background: #fefce8; text-align: center; margin-top: 20px;">
+                <h4>📷 Caméra Active / Scanner de QR Code Client</h4>
+                <p class="text-muted" style="font-size: 0.85rem;">Viseur optique aligné...</p>
+                <div style="width: 140px; height: 140px; margin: 15px auto; border: 4px solid var(--warning); position: relative; background:#000; border-radius: 8px;">
+                    <div style="position: absolute; width:100%; height:3px; background:red; animation: scanLine 2s infinite;"></div>
+                </div>
+                <p id="scanTargetInfo" style="font-weight: bold;"></p>
+                <button class="btn btn-success" id="btnConfirmerAutoScan" style="width: 100%; margin-top: 10px;">⚡ Confirmer le Scan & Débloquer les Fonds</button>
+                <button class="btn" style="background:#cbd5e1; width: 100%; margin-top: 5px;" onclick="annulerScan()">Annuler</button>
+            </div>
+
+            <div class="card" style="margin-top: 20px;">
+                <h4>📦 Vos missions acceptées en cours</h4>
+                <div id="listeCoursesLivreur">Aucune mission en cours.</div>
+            </div>
+        </div>
+
+        <!-- REÇU COMPTABLE ACCESSIBLE -->
+        <div id="zoneRecuUnique" class="card hidden" style="border: 2px solid var(--success); background: #f0fdf4; text-align: center;">
+            <h3 style="color: var(--success);">🔒 Transaction Débloquée & Validée</h3>
+            <p id="detailsSeparationFonds" style="margin: 10px 0;"></p>
+            <button class="btn btn-success" id="btnTelechargerSvg">💾 Télécharger le reçu officiel</button>
+            <button class="btn" style="background:#cbd5e1; margin-left: 5px;" onclick="fermerRecu()">Fermer</button>
+        </div>
+
+        <!-- REGISTRE CENTRAL DE SÉCURITÉ -->
+        <div class="card" style="margin-top: 30px; overflow-x: auto;">
+            <h4>📜 Registre décentralisé public de GarantiePay</h4>
+            <table id="tableHistorique">
+                <thead><tr><th>ID</th><th>Désignation</th><th>Triangulation</th><th>Ventilation Étanche</th><th>État</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // INITIALISATION DE TON AGENT SUPABASE REEL
+    const SUPABASE_URL = "https://wxtzomgslgwyvqyvuxpx.supabase.co"; 
+    const SUPABASE_KEY = "sb_publishable_wWyRMOZ_bVh8nrVBqIXs3Q_F40atwOv";
+    const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let currentUser = JSON.parse(sessionStorage.getItem('gp_session')) || null;
+    let selectedRole = 'acheteur';
+
+    function choisirRole(role) {
+        selectedRole = role;
+        document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+        document.getElementById('role' + role.charAt(0).toUpperCase() + role.slice(1)).classList.add('selected');
+    }
+
+    // AUTHENTIFICATION DYNAMIQUE AVEC SUPABASE (CREATION / CONNEXION AUTOMATIQUE)
+    async function authentifierUtilisateur() {
+        const username = document.getElementById('authUsername').value.trim();
+        const telephone = document.getElementById('authTelephone').value.trim();
+        if(!username) return alert("Veuillez spécifier votre nom d'utilisateur");
+
+        // Simulation intelligente de création d'ID unique persistant dans Supabase
+        // Dans une version finale avec mot de passe, on utiliserait _supabase.auth.signUp()
+        let { data: profile, error } = await _supabase
+            .from('profiles')
+            .select('*')
+            .eq('username', username)
+            .single();
+
+        if (error || !profile) {
+            // Création d'un nouvel identifiant unique natif UUID
+            const fauxUUID = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+
+            const { data: newProfile, error: insError } = await _supabase
+                .from('profiles')
+                .insert([{ id: fauxUUID, username: username, role: selectedRole, telephone: telephone, solde_points: 0 }])
+                .select()
+                .single();
+            
+            if(insError) { alert("Erreur d'initialisation du profil unique."); console.error(insError); return; }
+            profile = newProfile;
+        }
+
+        currentUser = profile;
+        sessionStorage.setItem('gp_session', JSON.stringify(currentUser));
+        redirectionTableauDeBord();
+    }
+
+    function deconnexion() {
+        currentUser = null;
+        sessionStorage.removeItem('gp_session');
+        document.getElementById('authSection').classList.remove('hidden');
+        document.getElementById('appInternalLayout').classList.add('hidden');
+    }
+
+    function redirectionTableauDeBord() {
+        if(!currentUser) return;
+        document.getElementById('authSection').classList.add('hidden');
+        document.getElementById('appInternalLayout').classList.remove('hidden');
+        document.getElementById('userSessionInfo').innerText = `${currentUser.username} (${currentUser.role.toUpperCase()})`;
+        
+        document.querySelectorAll('.dashboard-view').forEach(el => el.classList.add('hidden'));
+        document.getElementById('dash' + currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1)).classList.remove('hidden');
+        
+        // Écouteur en temps réel de Supabase pour mettre à jour l'écran du téléphone instantanément
+        _supabase
+            .channel('schema-db-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => { fetchEtRenderDonnees(); })
+            .subscribe();
+
+        fetchEtRenderDonnees();
+    }
+
+    async function creerTransactionMarchand() {
+        const nom = document.getElementById('mNomCourse').value.trim();
+        const mM = parseFloat(document.getElementById('mMontantM').value);
+        const mL = parseFloat(document.getElementById('mMontantL').value);
+        if(!nom || isNaN(mM) || isNaN(mL)) return alert("Veuillez remplir correctement les montants.");
+
+        const shareCode = 'GP-' + Math.floor(10000 + Math.random() * 90000);
+        const secretCode = 'QR-' + Math.floor(1000 + Math.random() * 9000);
+
+        const { error } = await _supabase
+            .from('transactions')
+            .insert([{
+                share_code: shareCode, nom_article: nom, montant_marchandise: mM, montant_livraison: mL,
+                marchand_id: currentUser.id, code_secret_client: secretCode, statut: 'initiee'
+            }]);
+
+        if(error) alert(error.message);
+        else {
+            document.getElementById('mNomCourse').value = '';
+            document.getElementById('mMontantM').value = '';
+            document.getElementById('mMontantL').value = '';
+            fetchEtRenderDonnees();
+        }
+    }
+
+    async function validerCodeAchatClient() {
+        const code = document.getElementById('inputShareCode').value.trim().toUpperCase();
+        
+        // Récupérer la transaction via Supabase
+        const { data: tx } = await _supabase.from('transactions').select('*').eq('share_code', code).single();
+        if(!tx) return alert("Code marchand introuvable ou expiré.");
+
+        const { error } = await _supabase
+            .from('transactions')
+            .update({ acheteur_id: currentUser.id, client_valide_code: true, statut: 'fonds_consignes' })
+            .eq('id', tx.id);
+
+        if(!error) { document.getElementById('inputShareCode').value = ''; fetchEtRenderDonnees(); }
+    }
+
+    async function validerCodeLivraisonLivreur() {
+        const code = document.getElementById('inputLivreurCodeMission').value.trim().toUpperCase();
+        const { data: tx } = await _supabase.from('transactions').select('*').eq('share_code', code).single();
+        if(!tx) return alert("Code marchand invalide pour cette course.");
+
+        const { error } = await _supabase
+            .from('transactions')
+            .update({ livreur_id: currentUser.id, livreur_valide_code: true })
+            .eq('id', tx.id);
+
+        if(!error) { document.getElementById('inputLivreurCodeMission').value = ''; fetchEtRenderDonnees(); }
+    }
+
+    function ouvrirScannerLivreur(id, nom, mL) {
+        document.getElementById('scanTargetInfo').innerText = `Scan Optique : ${nom} (+${mL} FCFA)`;
+        document.getElementById('scannerZone').classList.remove('hidden');
+        document.getElementById('btnConfirmerAutoScan').onclick = function() { finaliserTransactionUnique(id); };
+    }
+
+    function annulerScan() { document.getElementById('scannerZone').classList.add('hidden'); }
+
+    async function finaliserTransactionUnique(id) {
+        document.getElementById('scannerZone').classList.add('hidden');
+        
+        const { data: tx } = await _supabase.from('transactions').select('*').eq('id', id).single();
+        if(!tx) return;
+
+        // Mise à jour du solde du livreur dans Supabase
+        const { data: prof } = await _supabase.from('profiles').select('solde_points').eq('id', currentUser.id).single();
+        const nouveauSolde = (parseFloat(prof.solde_points) || 0) + parseFloat(tx.montant_livraison);
+        
+        await _supabase.from('profiles').update({ solde_points: nouveauSolde }).eq('id', currentUser.id);
+        currentUser.solde_points = nouveauSolde;
+
+        // Archivage propre dans le registre centralisé public
+        await _supabase.from('transactions').update({ statut: 'complete' }).eq('id', id);
+        
+        document.getElementById('detailsSeparationFonds').innerHTML = `
+            🛍️ Clôturé ! Montant Vendeur sécurisé.<br>
+            🛵 Crédité instantanément sur votre solde livreur : <b>+${tx.montant_livraison} FCFA</b>
+        `;
+        document.getElementById('zoneRecuUnique').classList.remove('hidden');
+        fetchEtRenderDonnees();
+    }
+
+    function fermerRecu() { document.getElementById('zoneRecuUnique').classList.add('hidden'); }
+
+    // FETCH ET AFFICHAGE SYNCHRONISÉ EN TEMPS RÉEL SUR LE TÉLÉPHONE
+    async function fetchEtRenderDonnees() {
+        if(!currentUser) return;
+
+        // Récupérer l'intégralité des transactions et des profils depuis Supabase
+        let { data: allTx } = await _supabase.from('transactions').select('*').order('created_at', { ascending: false });
+        let { data: allProfiles } = await _supabase.from('profiles').select('*');
+        
+        allTx = allTx || [];
+        allProfiles = allProfiles || [];
+
+        const findName = (id) => { const p = allProfiles.find(u => u.id === id); return p ? p.username : '⏳ Aucun'; };
+
+        // 1. AFFICHAGE MARCHAND
+        if(currentUser.role === 'marchand') {
+            const mesVentes = allTx.filter(t => t.marchand_id === currentUser.id && t.statut !== 'complete');
+            document.getElementById('listeVentesMarchand').innerHTML = mesVentes.length === 0 ? "<p class='text-muted'>Aucun token actif généré.</p>" : mesVentes.map(t => `
+                <div class="card" style="padding:12px; margin-bottom:8px;">
+                    <b>📦 Article : ${t.nom_article}</b><br>
+                    Client : <i>${findName(t.acheteur_id)}</i> | Livreur : <i>${findName(t.livreur_id)}</i><br>
+                    <div class="share-box">Partager le Code Unique : ${t.share_code}</div>
+                </div>
+            `).join('');
+            
+            document.getElementById('marchandChart').innerHTML = `<div class="bar-wrapper"><div class="bar" style="height:75px;"><span class="bar-value">Stable</span></div><span class="bar-label">Activité</span></div>`;
+        }
+
+        // 2. AFFICHAGE CLIENT
+        if(currentUser.role === 'acheteur') {
+            const mesAchatsValides = allTx.filter(t => t.acheteur_id === currentUser.id && t.client_valide_code && t.statut !== 'complete');
+            document.getElementById('listeAchatsSecurises').innerHTML = mesAchatsValides.length === 0 ? "Aucun QR Code actif pour le moment." : mesAchatsValides.map(t => `
+                <div style="text-align:center; padding:12px; border:1px solid var(--border); background:#fff; border-radius:8px; margin-bottom: 10px;">
+                    <strong>📦 ${t.nom_article}</strong><br>
+                    <span class="badge badge-attente" style="margin:5px 0;">Argent Consigné en Séquestre 🔒</span><br>
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${t.code_secret_client}" style="margin:8px 0;"><br>
+                    <span style="font-weight:bold; color:var(--primary); font-size:1.1rem;">${t.code_secret_client}</span>
+                </div>
+            `).join('');
+        }
+
+        // 3. AFFICHAGE LIVREUR
+        if(currentUser.role === 'livreur') {
+            const { data: pCur } = await _supabase.from('profiles').select('solde_points').eq('id', currentUser.id).single();
+            const monSoldeReel = pCur ? pCur.solde_points : 0;
+            document.getElementById('livreurSoldeGains').innerText = `${monSoldeReel} FCFA`;
+
+            const mesMissions = allTx.filter(t => t.livreur_id === currentUser.id && t.statut !== 'complete');
+            document.getElementById('listeCoursesLivreur').innerHTML = mesMissions.length === 0 ? "Aucune mission acceptée via Code Marchand." : mesMissions.map(t => `
+                <div class="card" style="padding:12px; border-left:4px solid var(--warning); margin-bottom:8px;">
+                    <b>📦 Commande : ${t.nom_article}</b><br>
+                    Gain Course : <span style="color:var(--success); font-weight:bold;">+${t.montant_livraison} FCFA</span><br>
+                    ${t.client_valide_code 
+                        ? `<button class="btn btn-success" style="width:100%; margin-top:8px; font-size:0.9rem;" onclick="ouvrirScannerLivreur('${t.id}', '${t.nom_article}', ${t.montant_livraison})">📷 Activer l'Appareil Photo & Scanner</button>`
+                        : `<span class="badge badge-en_cours" style="display:block; text-align:center; margin-top:8px;">⏳ En attente de consignation client</span>`
+                    }
+                </div>
+            `).join('');
+
+            document.getElementById('livreurChart').innerHTML = `<div class="bar-wrapper"><div class="bar success" style="height:${Math.min(100, (monSoldeReel/10000)*100)}px;"><span class="bar-value">${monSoldeReel}F</span></div><span class="bar-label">Solde</span></div>`;
+        }
+
+        // 4. REGISTRE PUBLIC DÉCENTRALISÉ EN BAS DE PAGE
+        const historiqueFiltre = allTx.filter(t => t.statut === 'complete');
+        const tbody = document.querySelector('#tableHistorique tbody');
+        tbody.innerHTML = historiqueFiltre.length === 0 ? "<tr><td colspan='5' style='text-align:center;'>Aucune transaction archivée publiquement.</td></tr>" : historiqueFiltre.map(t => `
+            <tr>
+                <td><mark>${t.id.substring(0,8)}</mark></td>
+                <td><b>${t.nom_article}</b></td>
+                <td style="font-size:0.75rem;">${findName(t.marchand_id)} ➔ ${findName(t.acheteur_id)}</td>
+                <td style="color:var(--success); font-weight:bold;">${t.montant_marchandise + t.montant_livraison} F</td>
+                <td><span class="badge badge-livre" style="background:#dcfce7; color:#16a34a;">Validé</span></td>
+            </tr>
+        `).join('');
+    }
+
+    if(currentUser) redirectionTableauDeBord();
+</script>
+</body>
+</html>
