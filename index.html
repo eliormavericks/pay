@@ -29,23 +29,36 @@
                 <img src="homme-image.jpg" alt="GarantiePay App Face">
             </div>
             <div class="auth-card">
-                <div style="text-align: center; margin-bottom: 25px;">
-                    <!-- Ton magnifique nouveau logo de l'image_2026-06-28_015110734.png -->
-                    <img src="logo.png" alt="GarantiePay Logo" style="max-height: 80px; margin-bottom: 12px; border-radius: 12px;">
-                    <h2 id="authTitle" style="color: var(--text); font-weight: 800; letter-spacing: -0.5px;">GarantiePay</h2>
-                    <p id="authSubtitle" class="text-muted" style="font-size: 0.85rem;">Identifiez-vous pour accéder à votre espace triangulé.</p>
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <!-- Logo officiel de l'image_2026-06-28_015110734.png -->
+                    <img src="logo.png" alt="GarantiePay Logo" style="max-height: 75px; margin-bottom: 10px; border-radius: 12px;">
+                    <h2 style="color: var(--text); font-weight: 800; letter-spacing: -0.5px;">GarantiePay</h2>
+                    
+                    <!-- ONGLETS SWITCH : CONNEXION VS INSCRIPTION -->
+                    <div style="display: flex; background: #f1f5f9; padding: 4px; border-radius: 8px; margin-top: 15px;">
+                        <button id="tabConnexion" class="btn" style="flex: 1; background: var(--primary); color: white; padding: 8px; font-size: 0.9rem; border-radius: 6px;" onclick="basculerModeAuth('connexion')">Se connecter</button>
+                        <button id="tabInscription" class="btn" style="flex: 1; background: transparent; color: var(--text); padding: 8px; font-size: 0.9rem; border-radius: 6px;" onclick="basculerModeAuth('inscription')">Créer un compte</button>
+                    </div>
                 </div>
+
+                <!-- SÉLECTEUR DE RÔLE (TOUJOURS VISIBLE) -->
                 <div class="form-group">
-                    <div class="role-selector-grid">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 8px;">Sélectionnez votre profil :</label>
+                    <div class="role-selector-grid" style="margin-bottom: 15px;">
                         <div class="role-card selected" id="roleAcheteur" onclick="choisirRole('acheteur')"><div>🛍️ Client</div></div>
                         <div class="role-card" id="roleMarchand" onclick="choisirRole('marchand')"><div>🛒 Vendeur</div></div>
                         <div class="role-card" id="roleLivreur" onclick="choisirRole('livreur')"><div>🛵 Livreur</div></div>
                     </div>
                     
-                    <input type="text" id="authUsername" placeholder="Entrez votre nom d'utilisateur">
-                    <input type="text" id="authTelephone" placeholder="Numéro de téléphone (ex: +225...)">
+                    <!-- INPUTS DYNAMIQUES -->
+                    <input type="text" id="authUsername" placeholder="Entrez votre pseudo unique">
                     
-                    <button class="btn btn-primary" style="width: 100%; font-size: 1rem; padding: 14px;" onclick="authentifierUtilisateur()">Entrer de manière sécurisée</button>
+                    <!-- Ce champ est masqué en mode connexion simple, visible en inscription -->
+                    <div id="zoneTelephoneInscription" class="hidden">
+                        <input type="text" id="authTelephone" placeholder="Numéro de téléphone (ex: +225...)">
+                    </div>
+                    
+                    <button id="btnActionAuth" class="btn btn-primary" style="width: 100%; font-size: 1rem; padding: 14px; margin-top: 10px;" onclick="executerAuthentification()">Se connecter de manière sécurisée</button>
                 </div>
             </div>
         </div>
@@ -163,13 +176,14 @@
 </div>
 
 <script>
-    // INITIALISATION DE TON AGENT SUPABASE REEL
+    // CONFIGURATION OFFICIELLE ET CLÉS AGENT DE TON COMPTE SUPABASE
     const SUPABASE_URL = "https://wxtzomgslgwyvqyvuxpx.supabase.co"; 
     const SUPABASE_KEY = "sb_publishable_wWyRMOZ_bVh8nrVBqIXs3Q_F40atwOv";
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let currentUser = JSON.parse(sessionStorage.getItem('gp_session')) || null;
     let selectedRole = 'acheteur';
+    let modeAuthActuel = 'connexion';
 
     function choisirRole(role) {
         selectedRole = role;
@@ -177,35 +191,97 @@
         document.getElementById('role' + role.charAt(0).toUpperCase() + role.slice(1)).classList.add('selected');
     }
 
-    // AUTHENTIFICATION DYNAMIQUE AVEC SUPABASE (CREATION / CONNEXION AUTOMATIQUE)
-    async function authentifierUtilisateur() {
-        const username = document.getElementById('authUsername').value.trim();
-        const telephone = document.getElementById('authTelephone').value.trim();
-        if(!username) return alert("Veuillez spécifier votre nom d'utilisateur");
+    function basculerModeAuth(mode) {
+        modeAuthActuel = mode;
+        const tabConnexion = document.getElementById('tabConnexion');
+        const tabInscription = document.getElementById('tabInscription');
+        const zonePhone = document.getElementById('zoneTelephoneInscription');
+        const btn = document.getElementById('btnActionAuth');
 
-        // Simulation intelligente de création d'ID unique persistant dans Supabase
-        // Dans une version finale avec mot de passe, on utiliserait _supabase.auth.signUp()
+        if (mode === 'connexion') {
+            tabConnexion.style.background = "var(--primary)";
+            tabConnexion.style.color = "white";
+            tabInscription.style.background = "transparent";
+            tabInscription.style.color = "var(--text)";
+            zonePhone.classList.add('hidden');
+            btn.innerText = "Se connecter de manière sécurisée";
+        } else {
+            tabInscription.style.background = "var(--primary)";
+            tabInscription.style.color = "white";
+            tabConnexion.style.background = "transparent";
+            tabConnexion.style.color = "var(--text)";
+            zonePhone.classList.remove('hidden');
+            btn.innerText = "Créer mon compte unique";
+        }
+    }
+
+    function executerAuthentification() {
+        if (modeAuthActuel === 'connexion') {
+            connexionUtilisateur();
+        } else {
+            inscriptionUtilisateur();
+        }
+    }
+
+    // 1. INSCRIPTION SÉCURISÉE : INSÈRE S'IL EST UNIQUE
+    async function inscriptionUtilisateur() {
+        const username = document.getElementById('authUsername').value.trim().toLowerCase();
+        const telephone = document.getElementById('authTelephone').value.trim();
+
+        if(!username) return alert("Veuillez choisir un pseudo unique.");
+        if(!telephone) return alert("Le numéro de téléphone est obligatoire.");
+
+        // Vérification d'unicité stricte sur le serveur Supabase
+        let { data: existe } = await _supabase
+            .from('profiles')
+            .select('username')
+            .eq('username', username)
+            .maybeSingle();
+
+        if (existe) {
+            return alert("❌ Ce pseudo est déjà pris ! Veuillez en choisir un autre (ex: ajouter des chiffres).");
+        }
+
+        // Génération d'un UUID unique pour le profil
+        const nouveauUUID = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+
+        const { data: newProfile, error } = await _supabase
+            .from('profiles')
+            .insert([{ id: nouveauUUID, username: username, role: selectedRole, telephone: telephone, solde_points: 0 }])
+            .select()
+            .single();
+        
+        if (error) {
+            console.error(error);
+            return alert("Erreur lors de la création du compte.");
+        }
+
+        alert(`🎉 Compte enregistré ! Bienvenue sur GarantiePay.`);
+        currentUser = newProfile;
+        sessionStorage.setItem('gp_session', JSON.stringify(currentUser));
+        redirectionTableauDeBord();
+    }
+
+    // 2. CONNEXION SÉCURISÉE AVEC VÉRIFICATION DU RÔLE
+    async function connexionUtilisateur() {
+        const username = document.getElementById('authUsername').value.trim().toLowerCase();
+        if(!username) return alert("Veuillez entrer votre pseudo.");
+
         let { data: profile, error } = await _supabase
             .from('profiles')
             .select('*')
             .eq('username', username)
-            .single();
+            .maybeSingle();
 
         if (error || !profile) {
-            // Création d'un nouvel identifiant unique natif UUID
-            const fauxUUID = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
+            return alert("❌ Pseudo introuvable. Cliquez sur 'Créer un compte' si vous êtes nouveau.");
+        }
 
-            const { data: newProfile, error: insError } = await _supabase
-                .from('profiles')
-                .insert([{ id: fauxUUID, username: username, role: selectedRole, telephone: telephone, solde_points: 0 }])
-                .select()
-                .single();
-            
-            if(insError) { alert("Erreur d'initialisation du profil unique."); console.error(insError); return; }
-            profile = newProfile;
+        if (profile.role !== selectedRole) {
+            return alert(`❌ Ce compte est lié au profil "${profile.role.toUpperCase()}". Veuillez sélectionner le bon bouton.`);
         }
 
         currentUser = profile;
@@ -229,7 +305,7 @@
         document.querySelectorAll('.dashboard-view').forEach(el => el.classList.add('hidden'));
         document.getElementById('dash' + currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1)).classList.remove('hidden');
         
-        // Écouteur en temps réel de Supabase pour mettre à jour l'écran du téléphone instantanément
+        // Surveillance en temps réel pour synchroniser les téléphones instantanément
         _supabase
             .channel('schema-db-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => { fetchEtRenderDonnees(); })
@@ -265,10 +341,8 @@
 
     async function validerCodeAchatClient() {
         const code = document.getElementById('inputShareCode').value.trim().toUpperCase();
-        
-        // Récupérer la transaction via Supabase
         const { data: tx } = await _supabase.from('transactions').select('*').eq('share_code', code).single();
-        if(!tx) return alert("Code marchand introuvable ou expiré.");
+        if(!tx) return alert("Code marchand introuvable.");
 
         const { error } = await _supabase
             .from('transactions')
@@ -281,7 +355,7 @@
     async function validerCodeLivraisonLivreur() {
         const code = document.getElementById('inputLivreurCodeMission').value.trim().toUpperCase();
         const { data: tx } = await _supabase.from('transactions').select('*').eq('share_code', code).single();
-        if(!tx) return alert("Code marchand invalide pour cette course.");
+        if(!tx) return alert("Code marchand introuvable.");
 
         const { error } = await _supabase
             .from('transactions')
@@ -305,18 +379,16 @@
         const { data: tx } = await _supabase.from('transactions').select('*').eq('id', id).single();
         if(!tx) return;
 
-        // Mise à jour du solde du livreur dans Supabase
         const { data: prof } = await _supabase.from('profiles').select('solde_points').eq('id', currentUser.id).single();
         const nouveauSolde = (parseFloat(prof.solde_points) || 0) + parseFloat(tx.montant_livraison);
         
         await _supabase.from('profiles').update({ solde_points: nouveauSolde }).eq('id', currentUser.id);
         currentUser.solde_points = nouveauSolde;
 
-        // Archivage propre dans le registre centralisé public
         await _supabase.from('transactions').update({ statut: 'complete' }).eq('id', id);
         
         document.getElementById('detailsSeparationFonds').innerHTML = `
-            🛍️ Clôturé ! Montant Vendeur sécurisé.<br>
+            🛒 Clôturé ! Montant Vendeur sécurisé.<br>
             🛵 Crédité instantanément sur votre solde livreur : <b>+${tx.montant_livraison} FCFA</b>
         `;
         document.getElementById('zoneRecuUnique').classList.remove('hidden');
@@ -325,11 +397,9 @@
 
     function fermerRecu() { document.getElementById('zoneRecuUnique').classList.add('hidden'); }
 
-    // FETCH ET AFFICHAGE SYNCHRONISÉ EN TEMPS RÉEL SUR LE TÉLÉPHONE
     async function fetchEtRenderDonnees() {
         if(!currentUser) return;
 
-        // Récupérer l'intégralité des transactions et des profils depuis Supabase
         let { data: allTx } = await _supabase.from('transactions').select('*').order('created_at', { ascending: false });
         let { data: allProfiles } = await _supabase.from('profiles').select('*');
         
@@ -338,7 +408,7 @@
 
         const findName = (id) => { const p = allProfiles.find(u => u.id === id); return p ? p.username : '⏳ Aucun'; };
 
-        // 1. AFFICHAGE MARCHAND
+        // MARCHAND
         if(currentUser.role === 'marchand') {
             const mesVentes = allTx.filter(t => t.marchand_id === currentUser.id && t.statut !== 'complete');
             document.getElementById('listeVentesMarchand').innerHTML = mesVentes.length === 0 ? "<p class='text-muted'>Aucun token actif généré.</p>" : mesVentes.map(t => `
@@ -348,14 +418,13 @@
                     <div class="share-box">Partager le Code Unique : ${t.share_code}</div>
                 </div>
             `).join('');
-            
             document.getElementById('marchandChart').innerHTML = `<div class="bar-wrapper"><div class="bar" style="height:75px;"><span class="bar-value">Stable</span></div><span class="bar-label">Activité</span></div>`;
         }
 
-        // 2. AFFICHAGE CLIENT
+        // CLIENT
         if(currentUser.role === 'acheteur') {
-            const mesAchatsValides = allTx.filter(t => t.acheteur_id === currentUser.id && t.client_valide_code && t.statut !== 'complete');
-            document.getElementById('listeAchatsSecurises').innerHTML = mesAchatsValides.length === 0 ? "Aucun QR Code actif pour le moment." : mesAchatsValides.map(t => `
+            const mesAchatsValibles = allTx.filter(t => t.acheteur_id === currentUser.id && t.client_valide_code && t.statut !== 'complete');
+            document.getElementById('listeAchatsSecurises').innerHTML = mesAchatsValibles.length === 0 ? "Aucun QR Code actif pour le moment." : mesAchatsValibles.map(t => `
                 <div style="text-align:center; padding:12px; border:1px solid var(--border); background:#fff; border-radius:8px; margin-bottom: 10px;">
                     <strong>📦 ${t.nom_article}</strong><br>
                     <span class="badge badge-attente" style="margin:5px 0;">Argent Consigné en Séquestre 🔒</span><br>
@@ -365,7 +434,7 @@
             `).join('');
         }
 
-        // 3. AFFICHAGE LIVREUR
+        // LIVREUR
         if(currentUser.role === 'livreur') {
             const { data: pCur } = await _supabase.from('profiles').select('solde_points').eq('id', currentUser.id).single();
             const monSoldeReel = pCur ? pCur.solde_points : 0;
@@ -382,11 +451,10 @@
                     }
                 </div>
             `).join('');
-
             document.getElementById('livreurChart').innerHTML = `<div class="bar-wrapper"><div class="bar success" style="height:${Math.min(100, (monSoldeReel/10000)*100)}px;"><span class="bar-value">${monSoldeReel}F</span></div><span class="bar-label">Solde</span></div>`;
         }
 
-        // 4. REGISTRE PUBLIC DÉCENTRALISÉ EN BAS DE PAGE
+        // REGISTRE PUBLIC
         const historiqueFiltre = allTx.filter(t => t.statut === 'complete');
         const tbody = document.querySelector('#tableHistorique tbody');
         tbody.innerHTML = historiqueFiltre.length === 0 ? "<tr><td colspan='5' style='text-align:center;'>Aucune transaction archivée publiquement.</td></tr>" : historiqueFiltre.map(t => `
@@ -395,7 +463,7 @@
                 <td><b>${t.nom_article}</b></td>
                 <td style="font-size:0.75rem;">${findName(t.marchand_id)} ➔ ${findName(t.acheteur_id)}</td>
                 <td style="color:var(--success); font-weight:bold;">${t.montant_marchandise + t.montant_livraison} F</td>
-                <td><span class="badge badge-livre" style="background:#dcfce7; color:#16a34a;">Validé</span></td>
+                <td><span class="badge" style="background:#dcfce7; color:#16a34a;">Validé</span></td>
             </tr>
         `).join('');
     }
